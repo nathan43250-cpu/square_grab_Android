@@ -1,0 +1,34 @@
+name: square_grab
+description: "Collecte les carrés de la carte en te déplaçant dans le monde réel."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Carte + affichage des tuiles OpenStreetMap
+  flutter_map: ^7.0.2
+  lat long2: ^0.9.1
+
+  # Géolocalisation
+  geolocator: ^13.0.1
+
+  # Stockage local des carrés collectés
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.13
+
+flutter:
+  uses-material-design: true
