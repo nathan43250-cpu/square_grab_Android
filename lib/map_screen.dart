@@ -54,12 +54,9 @@ class _MapScreenState extends State<MapScreen> {
       final position = await Geolocator.getCurrentPosition();
       final latLng = LatLng(position.latitude, position.longitude);
       setState(() => _currentPosition = latLng);
-      // Le "initialCenter" de FlutterMap ne s'applique qu'à la création du
-      // widget : comme la position arrive de façon asynchrone après coup,
-      // il faut recentrer la caméra manuellement une fois qu'on l'a.
+
       _mapController.move(latLng, 16);
     } catch (_) {
-      // Pas grave si ça échoue, on garde le centre par défaut.
     }
   }
 
@@ -99,7 +96,6 @@ class _MapScreenState extends State<MapScreen> {
               initialCenter: center,
               initialZoom: 16,
               initialRotation: 0,
-              // Désactive la rotation : la carte reste toujours orientée nord.
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
               ),
@@ -120,7 +116,6 @@ class _MapScreenState extends State<MapScreen> {
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.square_grab',
               ),
-              // Quadrillage complet des cases visibles (non collectées = juste contour).
               PolygonLayer(
                 polygons: _visibleGridCells
                     .where((cell) => !collectedIds.contains(cell.id))
@@ -132,7 +127,6 @@ class _MapScreenState extends State<MapScreen> {
                         ))
                     .toList(),
               ),
-              // Cases déjà collectées, colorées par mode de transport.
               PolygonLayer(
                 polygons: cells
                     .map((c) => Polygon(

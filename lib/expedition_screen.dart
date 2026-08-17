@@ -27,9 +27,13 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
   final MapController _mapController = MapController();
   StreamSubscription<Position>? _positionSub;
 
+  static const double _minZoomForGrid = 14;
+
   bool _isRunning = false;
   bool _isLoadingPosition = false;
   final Set<GridCell> _sessionCells = {};
+  List<GridCell> _visibleGridCells = [];
+  Timer? _gridDebounce;
   LatLng? _currentLatLng;
   Position? _lastPosition;
   double _distanceMeters = 0;
@@ -45,6 +49,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
   @override
   void dispose() {
     _positionSub?.cancel();
+    _gridDebounce?.cancel();
     super.dispose();
   }
 
@@ -203,6 +208,24 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
     return '${hours}h${minutes}min';
   }
 
+  void _onMapEvent(MapEvent event) {
+    _gridDebounce?.cancel();
+    _gridDebounce = Timer(const Duration(milliseconds: 150), () {
+      if (!mounted) return;
+      final camera = _mapController.camera;
+      if (camera.zoom < _minZoomForGrid) {
+        if (_visibleGridCells.isNotEmpty) {
+          setState(() => _visibleGridCells = []);
+        }
+        return;
+      }
+      final bounds = camera.visibleBounds;
+      setState(() {
+        _visibleGridCells = _gridSystem.cellsInBounds(bounds.southWest, bounds.northEast);
+      });
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoadingPosition) {
@@ -248,6 +271,17 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
               ),
+              onMapEvent: _onMapEvent,
+              onMapReady: () {
+                final camera = _mapController.camera;
+                if (camera.zoom >= _minZoomForGrid) {
+                  _visibleGridCells = _gridSystem.cellsInBounds(
+                    camera.visibleBounds.southWest,
+                    camera.visibleBounds.northEast,
+                  );
+                }
+                setState(() {});
+              },
             ),
             children: [
               TileLayer(
@@ -255,10 +289,35 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
                 userAgentPackageName: 'com.example.square_grab',
               ),
               PolygonLayer(
+                polygons: _visibleGridCells
+                    .where((cell) =>
+                        !_sessionCells.contains(cell) &&
+                        !widget.storage.isCollected(cell))
+                    .map((cell) => Polygon(
+                          points: _gridSystem.cellPolygon(cell),
+                          color: Colors.transparent,
+                          borderColor: Colors.grey.withOpacity(0.5),
+                          borderStrokeWidth: 0.8,
+                        ))
+                    .toList(),
+              ),
+              PolygonLayer(
+                polygons: widget.storage.allCollectedCells
+                    .where((c) => !_sessionCells.contains(c.cell))
+                    .map((c) => Polygon(
+                          points: _gridSystem.cellPolygon(c.cell),
+                          color: c.mode.color.withOpacity(0.35),
+                          borderColor: c.mode.color,
+                          borderStrokeWidth: 1,
+                        ))
+                    .toList(),
+              ),
+
+              PolygonLayer(
                 polygons: _sessionCells
                     .map((cell) => Polygon(
                           points: _gridSystem.cellPolygon(cell),
-                          color: Colors.deepPurple.withOpacity(0.35),
+                          color: Colors.deepPurple.withOpacity(0.45),
                           borderColor: Colors.deepPurple,
                           borderStrokeWidth: 1.5,
                         ))
@@ -276,7 +335,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
               ),
             ],
           ),
-          // Panneau de stats en haut, visible seulement pendant une expédition.
+
           if (_isRunning)
             Positioned(
               top: 12,
@@ -308,7 +367,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
                 ),
               ),
             ),
-          // Bouton démarrer/terminer en bas.
+
           Positioned(
             left: 16,
             right: 16,

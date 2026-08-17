@@ -3,8 +3,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'grid_utils.dart';
 import 'transport_mode.dart';
 
-/// Une cellule collectée, avec le mode de transport utilisé pour l'obtenir
-/// et la date de collecte.
 class CollectedCell {
   final GridCell cell;
   final TransportMode mode;
@@ -17,8 +15,6 @@ class CollectedCell {
   });
 }
 
-/// Gère la persistance locale des cellules collectées.
-/// Stocke pour chaque cellule (clé "lat_lng") un JSON {mode, timestamp}.
 class StorageService {
   static const String _boxName = 'collected_cells_v2';
   late Box<String> _box;
@@ -35,8 +31,6 @@ class StorageService {
   int countForMode(TransportMode mode) =>
       allCollectedCells.where((c) => c.mode == mode).length;
 
-  /// Enregistre une cellule si elle n'est pas déjà collectée.
-  /// Retourne true si c'était une nouvelle cellule.
   bool _collectSingle(GridCell cell, TransportMode mode) {
     if (_box.containsKey(cell.id)) return false;
     final value = jsonEncode({
@@ -47,9 +41,6 @@ class StorageService {
     return true;
   }
 
-  /// Enregistre toutes les cellules d'une expédition terminée avec le mode
-  /// de transport choisi. Retourne le nombre de nouvelles cellules ajoutées
-  /// (les cellules déjà possédées ne sont pas recolorées).
   int commitExpedition(Set<GridCell> cells, TransportMode mode) {
     var newCount = 0;
     for (final cell in cells) {

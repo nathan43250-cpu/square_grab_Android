@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Les moyens de transport disponibles à la fin d'une expédition.
-/// Chaque mode a sa propre couleur pour distinguer les carrés sur la carte.
 enum TransportMode {
   walk,
   bike,
@@ -40,7 +38,6 @@ enum TransportMode {
     }
   }
 
-  /// Nom stocké en base (String -> enum lors de la relecture).
   String get storageKey => name;
 
   static TransportMode fromStorageKey(String key) {

@@ -37,8 +37,6 @@ class _RootScreenState extends State<RootScreen> {
   bool _ready = false;
   int _currentIndex = 0;
 
-  // Sert à forcer le rafraîchissement de la carte quand une expédition
-  // vient d'être validée.
   int _mapRefreshKey = 0;
 
   @override
