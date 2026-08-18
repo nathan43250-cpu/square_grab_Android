@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
+import 'background_service.dart';
 import 'expedition_screen.dart';
+import 'floating_nav_bar.dart';
 import 'language_controller.dart';
 import 'map_screen.dart';
 import 'rules_screen.dart';
@@ -9,6 +12,7 @@ import 'storage_service.dart';
 import 'translations.dart';
 
 void main() {
+  FlutterForegroundTask.initCommunicationPort();
   runApp(const SquareGrabApp());
 }
 
@@ -19,9 +23,13 @@ class SquareGrabApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Square Grab',
+
       theme: ThemeData(
-        colorSchemeSeed: Colors.deepPurple,
         useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurpleAccent,
+          brightness: Brightness.dark,
+        ),
       ),
       home: const RootScreen(),
     );
@@ -41,8 +49,6 @@ class _RootScreenState extends State<RootScreen> {
   bool _ready = false;
   int _currentIndex = 0;
 
-  // Sert à forcer le rafraîchissement de la carte quand une expédition
-  // vient d'être validée.
   int _mapRefreshKey = 0;
 
   @override
@@ -80,9 +86,6 @@ class _RootScreenState extends State<RootScreen> {
       const RulesScreen(),
     ];
 
-    // ListenableBuilder ici permet à toute cette partie (barre de nav
-    // comprise) de se redessiner automatiquement dès que la langue change
-    // dans le controller, sans avoir à passer par un setState manuel.
     return ListenableBuilder(
       listenable: _languageController,
       builder: (context, _) {
@@ -98,20 +101,23 @@ class _RootScreenState extends State<RootScreen> {
             ],
           ),
           body: IndexedStack(index: _currentIndex, children: screens),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: _currentIndex,
-            onDestinationSelected: (i) => setState(() => _currentIndex = i),
-            destinations: [
-              NavigationDestination(
-                icon: const Icon(Icons.explore),
+          bottomNavigationBar: FloatingNavBar(
+            currentIndex: _currentIndex,
+            onTap: (i) => setState(() => _currentIndex = i),
+            items: [
+              NavItem(
+                icon: Icons.explore_outlined,
+                selectedIcon: Icons.explore,
                 label: AppTranslations.t('exp_tab', lang),
               ),
-              NavigationDestination(
-                icon: const Icon(Icons.map),
+              NavItem(
+                icon: Icons.map_outlined,
+                selectedIcon: Icons.map,
                 label: AppTranslations.t('map_tab', lang),
               ),
-              NavigationDestination(
-                icon: const Icon(Icons.menu_book),
+              NavItem(
+                icon: Icons.menu_book_outlined,
+                selectedIcon: Icons.menu_book,
                 label: AppTranslations.t('rule_tab', lang),
               ),
             ],

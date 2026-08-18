@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'background_service.dart';
 import 'grid_utils.dart';
 import 'language_controller.dart';
 import 'storage_service.dart';
@@ -31,7 +32,6 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
   final MapController _mapController = MapController();
   StreamSubscription<Position>? _positionSub;
 
-  // En dessous de ce niveau de zoom, on ne dessine plus le quadrillage fin.
   static const double _minZoomForGrid = 14;
 
   bool _isRunning = false;
@@ -43,13 +43,14 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
   Position? _lastPosition;
   double _distanceMeters = 0;
   DateTime? _startedAt;
-  String? _errorMessageKey; // on stocke la CLÉ de traduction, pas le texte
+  String? _errorMessageKey;
 
   AppLanguage get _lang => widget.languageController.current;
 
   @override
   void initState() {
     super.initState();
+    ExpeditionForegroundService.init();
     _loadInitialPosition();
   }
 
@@ -57,6 +58,9 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
   void dispose() {
     _positionSub?.cancel();
     _gridDebounce?.cancel();
+    if (_isRunning) {
+      ExpeditionForegroundService.stop();
+    }
     super.dispose();
   }
 
@@ -103,6 +107,8 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
     final granted = await _ensurePermission();
     if (!granted) return;
 
+    await ExpeditionForegroundService.requestPermissions();
+
     setState(() {
       _isRunning = true;
       _sessionCells.clear();
@@ -110,6 +116,11 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
       _lastPosition = null;
       _startedAt = DateTime.now();
     });
+
+    await ExpeditionForegroundService.start(
+      title: AppTranslations.t('notification_title', _lang),
+      text: AppTranslations.tCount('notification_text', _lang, 0),
+    );
 
     const settings = LocationSettings(
       accuracy: LocationAccuracy.high,
@@ -135,11 +146,18 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
 
     final latLng = LatLng(position.latitude, position.longitude);
     final cell = _gridSystem.cellForPosition(latLng);
+    final isNewCell = !_sessionCells.contains(cell);
 
     setState(() {
       _currentLatLng = latLng;
       _sessionCells.add(cell);
     });
+
+    if (isNewCell) {
+      ExpeditionForegroundService.updateText(
+        AppTranslations.tCount('notification_text', _lang, _sessionCells.length),
+      );
+    }
 
     _mapController.move(latLng, _mapController.camera.zoom);
   }
@@ -147,6 +165,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
   Future<void> _stopExpedition() async {
     await _positionSub?.cancel();
     _positionSub = null;
+    await ExpeditionForegroundService.stop();
 
     setState(() => _isRunning = false);
 
@@ -237,8 +256,6 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Tout l'écran est enveloppé dans ce ListenableBuilder pour se
-    // redessiner automatiquement dès que la langue change.
     return ListenableBuilder(
       listenable: widget.languageController,
       builder: (context, _) => _buildContent(context),
@@ -251,7 +268,6 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
     }
 
     if (_currentLatLng == null) {
-      // Pas de position dispo (permission refusée ou GPS désactivé).
       return Scaffold(
         body: Center(
           child: Padding(
@@ -306,7 +322,6 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.square_grab',
               ),
-              // Quadrillage complet des cases visibles à l'écran (contour seul).
               PolygonLayer(
                 polygons: _visibleGridCells
                     .where((cell) =>
@@ -320,7 +335,6 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
                         ))
                     .toList(),
               ),
-              // Carrés déjà collectés lors de précédentes expéditions (pour se repérer).
               PolygonLayer(
                 polygons: widget.storage.allCollectedCells
                     .where((c) => !_sessionCells.contains(c.cell))
@@ -332,7 +346,6 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
                         ))
                     .toList(),
               ),
-              // Carrés collectés pendant l'expédition en cours.
               PolygonLayer(
                 polygons: _sessionCells
                     .map((cell) => Polygon(
@@ -355,7 +368,6 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
               ),
             ],
           ),
-          // Panneau de stats en haut, visible seulement pendant une expédition.
           if (_isRunning)
             Positioned(
               top: 12,
@@ -391,7 +403,6 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
                 ),
               ),
             ),
-          // Bouton démarrer/terminer en bas.
           Positioned(
             left: 16,
             right: 16,

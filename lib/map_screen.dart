@@ -103,7 +103,7 @@ class _MapScreenState extends State<MapScreen> {
             options: MapOptions(
               initialCenter: center,
               initialZoom: 16,
-              initialRotation: 0, .
+              initialRotation: 0,
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
               ),

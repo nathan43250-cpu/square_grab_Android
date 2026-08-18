@@ -1,6 +1,5 @@
 import 'language_controller.dart';
 
-/// Petit dictionnaire de traductions.
 class AppTranslations {
   static const Map<String, Map<AppLanguage, String>> _dictionary = {
     'settings_title': {
@@ -112,6 +111,16 @@ class AppTranslations {
       AppLanguage.en: '{count} squares',
       AppLanguage.zh: '{count} 个方块',
     },
+    'notification_title': {
+      AppLanguage.fr: 'Expédition en cours',
+      AppLanguage.en: 'Expedition in progress',
+      AppLanguage.zh: '探险进行中',
+    },
+    'notification_text': {
+      AppLanguage.fr: '{count} carrés collectés — appuie pour revenir à l\'app',
+      AppLanguage.en: '{count} squares collected — tap to return to the app',
+      AppLanguage.zh: '已收集{count}个方块 — 点击返回应用',
+    },
 
     // Onglet MAP
     'map_title': {
@@ -142,15 +151,11 @@ class AppTranslations {
     return _dictionary[key]?[language] ?? key;
   }
 
-  /// Traduit une clé ET remplace le placeholder {count} par une valeur.
-  /// Exemple d'usage : tCount('map_title', lang, cells.length)
   static String tCount(String key, AppLanguage language, int count) {
     final template = t(key, language);
     return template.replaceAll('{count}', count.toString());
   }
 
-  /// Traduit une clé et remplace plusieurs placeholders à la fois.
-  /// Exemple : tVars('expedition_result', lang, {'count': '3', 'mode': 'Vélo'})
   static String tVars(String key, AppLanguage language, Map<String, String> vars) {
     var result = t(key, language);
     for (final entry in vars.entries) {

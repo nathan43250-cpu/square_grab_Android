@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'language_controller.dart';
 import 'translations.dart';
 
-/// Les moyens de transport disponibles à la fin d'une expédition.
-/// Chaque mode a sa propre couleur pour distinguer les carrés sur la carte.
 enum TransportMode {
   walk,
   bike,
@@ -42,12 +40,8 @@ enum TransportMode {
     }
   }
 
-  /// Nom stocké en base (String -> enum lors de la relecture).
   String get storageKey => name;
 
-  /// Libellé traduit selon la langue actuelle (à utiliser dans l'UI).
-  /// Utilise les clés 'transport_walk', 'transport_bike', 'transport_car'
-  /// du dictionnaire, qui correspondent exactement au nom de l'enum.
   String labelFor(AppLanguage language) {
     return AppTranslations.t('transport_$name', language);
   }
