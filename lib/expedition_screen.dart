@@ -5,16 +5,20 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'grid_utils.dart';
+import 'language_controller.dart';
 import 'storage_service.dart';
 import 'transport_mode.dart';
+import 'translations.dart';
 
 class ExpeditionScreen extends StatefulWidget {
   final StorageService storage;
+  final LanguageController languageController;
   final VoidCallback onExpeditionCommitted;
 
   const ExpeditionScreen({
     super.key,
     required this.storage,
+    required this.languageController,
     required this.onExpeditionCommitted,
   });
 
@@ -27,6 +31,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
   final MapController _mapController = MapController();
   StreamSubscription<Position>? _positionSub;
 
+  // En dessous de ce niveau de zoom, on ne dessine plus le quadrillage fin.
   static const double _minZoomForGrid = 14;
 
   bool _isRunning = false;
@@ -38,7 +43,9 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
   Position? _lastPosition;
   double _distanceMeters = 0;
   DateTime? _startedAt;
-  String? _errorMessage;
+  String? _errorMessageKey; // on stocke la CLÉ de traduction, pas le texte
+
+  AppLanguage get _lang => widget.languageController.current;
 
   @override
   void initState() {
@@ -68,7 +75,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
       });
     } catch (e) {
       setState(() {
-        _errorMessage = "Impossible de récupérer ta position.";
+        _errorMessageKey = 'position_error';
         _isLoadingPosition = false;
       });
     }
@@ -76,7 +83,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
 
   Future<bool> _ensurePermission() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
-      setState(() => _errorMessage = "Le GPS est désactivé sur ton téléphone.");
+      setState(() => _errorMessageKey = 'gps_disabled_error');
       return false;
     }
     var permission = await Geolocator.checkPermission();
@@ -85,10 +92,10 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
     }
     if (permission == LocationPermission.deniedForever ||
         permission == LocationPermission.denied) {
-      setState(() => _errorMessage = "Permission de localisation refusée.");
+      setState(() => _errorMessageKey = 'permission_denied_error');
       return false;
     }
-    setState(() => _errorMessage = null);
+    setState(() => _errorMessageKey = null);
     return true;
   }
 
@@ -111,7 +118,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
 
     _positionSub = Geolocator.getPositionStream(locationSettings: settings)
         .listen(_onPositionUpdate, onError: (e) {
-      setState(() => _errorMessage = "Erreur GPS pendant le suivi.");
+      setState(() => _errorMessageKey = 'gps_tracking_error');
     });
   }
 
@@ -146,7 +153,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
     if (_sessionCells.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Aucun carré parcouru pendant cette expédition.')),
+          SnackBar(content: Text(AppTranslations.t('no_squares_snackbar', _lang))),
         );
       }
       return;
@@ -166,9 +173,11 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
     });
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$newCount nouveau(x) carré(s) collecté(s) en ${mode.label} !')),
-      );
+      final message = AppTranslations.tVars('expedition_result', _lang, {
+        'count': newCount.toString(),
+        'mode': mode.labelFor(_lang),
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -183,15 +192,15 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Quel moyen de transport as-tu utilisé ?',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Text(
+                  AppTranslations.t('transport_prompt_title', _lang),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
                 for (final mode in TransportMode.values)
                   ListTile(
                     leading: Icon(mode.icon, color: mode.color),
-                    title: Text(mode.label),
+                    title: Text(mode.labelFor(_lang)),
                     onTap: () => Navigator.of(context).pop(mode),
                   ),
               ],
@@ -228,6 +237,15 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Tout l'écran est enveloppé dans ce ListenableBuilder pour se
+    // redessiner automatiquement dès que la langue change.
+    return ListenableBuilder(
+      listenable: widget.languageController,
+      builder: (context, _) => _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     if (_isLoadingPosition) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -244,13 +262,13 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
                 const Icon(Icons.location_off, size: 64, color: Colors.grey),
                 const SizedBox(height: 16),
                 Text(
-                  _errorMessage ?? "Position indisponible.",
+                  AppTranslations.t(_errorMessageKey ?? 'location_off_title', _lang),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: _loadInitialPosition,
-                  child: const Text('Réessayer'),
+                  child: Text(AppTranslations.t('retry_button', _lang)),
                 ),
               ],
             ),
@@ -288,6 +306,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.square_grab',
               ),
+              // Quadrillage complet des cases visibles à l'écran (contour seul).
               PolygonLayer(
                 polygons: _visibleGridCells
                     .where((cell) =>
@@ -301,6 +320,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
                         ))
                     .toList(),
               ),
+              // Carrés déjà collectés lors de précédentes expéditions (pour se repérer).
               PolygonLayer(
                 polygons: widget.storage.allCollectedCells
                     .where((c) => !_sessionCells.contains(c.cell))
@@ -312,7 +332,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
                         ))
                     .toList(),
               ),
-
+              // Carrés collectés pendant l'expédition en cours.
               PolygonLayer(
                 polygons: _sessionCells
                     .map((cell) => Polygon(
@@ -335,7 +355,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
               ),
             ],
           ),
-
+          // Panneau de stats en haut, visible seulement pendant une expédition.
           if (_isRunning)
             Positioned(
               top: 12,
@@ -352,7 +372,11 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _StatChip(icon: Icons.grid_on, label: '${_sessionCells.length} carrés'),
+                      _StatChip(
+                        icon: Icons.grid_on,
+                        label: AppTranslations.tCount(
+                            'stat_squares_count', _lang, _sessionCells.length),
+                      ),
                       _StatChip(
                         icon: Icons.straighten,
                         label: '${(_distanceMeters / 1000).toStringAsFixed(2)} km',
@@ -367,7 +391,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
                 ),
               ),
             ),
-
+          // Bouton démarrer/terminer en bas.
           Positioned(
             left: 16,
             right: 16,
@@ -379,7 +403,8 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
                 child: ElevatedButton.icon(
                   onPressed: _isRunning ? _stopExpedition : _startExpedition,
                   icon: Icon(_isRunning ? Icons.stop : Icons.play_arrow),
-                  label: Text(_isRunning ? "Terminer l'expédition" : "Démarrer l'expédition"),
+                  label: Text(AppTranslations.t(
+                      _isRunning ? 'stop_expedition' : 'start_expedition', _lang)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _isRunning ? Colors.redAccent : null,
                     elevation: 4,

@@ -9,13 +9,12 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(AppTranslations.t('settings_title', controller.current))),
-
-      body: ListenableBuilder(
-        listenable: controller,
-        builder: (context, _) {
-          return ListView(
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        return Scaffold(
+          appBar: AppBar(title: Text(AppTranslations.t('settings_title', controller.current))),
+          body: ListView(
             children: [
               for (final lang in AppLanguage.values)
                 RadioListTile<AppLanguage>(
@@ -29,9 +28,9 @@ class SettingsScreen extends StatelessWidget {
                   },
                 ),
             ],
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 

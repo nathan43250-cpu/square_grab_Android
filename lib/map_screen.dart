@@ -5,13 +5,16 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'grid_utils.dart';
+import 'language_controller.dart';
 import 'storage_service.dart';
 import 'transport_mode.dart';
+import 'translations.dart';
 
 class MapScreen extends StatefulWidget {
   final StorageService storage;
+  final LanguageController languageController;
 
-  const MapScreen({super.key, required this.storage});
+  const MapScreen({super.key, required this.storage, required this.languageController});
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -21,8 +24,6 @@ class _MapScreenState extends State<MapScreen> {
   final GridSystem _gridSystem = const GridSystem(cellSizeMeters: 200);
   final MapController _mapController = MapController();
 
-  // En dessous de ce niveau de zoom, on ne dessine plus le quadrillage fin :
-  // ça ne serait de toute façon pas lisible, et ça évite le lag au dézoom.
   static const double _minZoomForGrid = 14;
 
   LatLng? _currentPosition;
@@ -54,7 +55,6 @@ class _MapScreenState extends State<MapScreen> {
       final position = await Geolocator.getCurrentPosition();
       final latLng = LatLng(position.latitude, position.longitude);
       setState(() => _currentPosition = latLng);
-
       _mapController.move(latLng, 16);
     } catch (_) {
     }
@@ -80,13 +80,21 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: widget.languageController,
+      builder: (context, _) => _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    final lang = widget.languageController.current;
     final cells = widget.storage.allCollectedCells;
     final collectedIds = cells.map((c) => c.cell.id).toSet();
     final center = _currentPosition ?? const LatLng(48.8566, 2.3522);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Ta carte — ${cells.length} carré(s)'),
+        title: Text(AppTranslations.tCount('map_title', lang, cells.length)),
       ),
       body: Stack(
         children: [
@@ -95,7 +103,7 @@ class _MapScreenState extends State<MapScreen> {
             options: MapOptions(
               initialCenter: center,
               initialZoom: 16,
-              initialRotation: 0,
+              initialRotation: 0, .
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
               ),
@@ -153,7 +161,7 @@ class _MapScreenState extends State<MapScreen> {
           Positioned(
             left: 12,
             bottom: 12,
-            child: _Legend(storage: widget.storage),
+            child: _Legend(storage: widget.storage, language: lang),
           ),
         ],
       ),
@@ -167,8 +175,9 @@ class _MapScreenState extends State<MapScreen> {
 
 class _Legend extends StatelessWidget {
   final StorageService storage;
+  final AppLanguage language;
 
-  const _Legend({required this.storage});
+  const _Legend({required this.storage, required this.language});
 
   @override
   Widget build(BuildContext context) {
@@ -191,7 +200,7 @@ class _Legend extends StatelessWidget {
                 children: [
                   Container(width: 12, height: 12, color: mode.color),
                   const SizedBox(width: 6),
-                  Text('${mode.label} (${storage.countForMode(mode)})',
+                  Text('${mode.labelFor(language)} (${storage.countForMode(mode)})',
                       style: const TextStyle(fontSize: 12)),
                 ],
               ),

@@ -41,6 +41,8 @@ class _RootScreenState extends State<RootScreen> {
   bool _ready = false;
   int _currentIndex = 0;
 
+  // Sert à forcer le rafraîchissement de la carte quand une expédition
+  // vient d'être validée.
   int _mapRefreshKey = 0;
 
   @override
@@ -67,9 +69,14 @@ class _RootScreenState extends State<RootScreen> {
     final screens = [
       ExpeditionScreen(
         storage: _storage,
+        languageController: _languageController,
         onExpeditionCommitted: () => setState(() => _mapRefreshKey++),
       ),
-      MapScreen(key: ValueKey(_mapRefreshKey), storage: _storage),
+      MapScreen(
+        key: ValueKey(_mapRefreshKey),
+        storage: _storage,
+        languageController: _languageController,
+      ),
       const RulesScreen(),
     ];
 
