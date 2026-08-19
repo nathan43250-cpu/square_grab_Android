@@ -1,8 +1,11 @@
 import 'language_controller.dart';
 
-/// Petit dictionnaire de traductions.
+/// Système de traduction minimaliste pour l'application.
+/// Gère le français, l'anglais et le chinois.
 class AppTranslations {
+  /// Dictionnaire centralisé des chaînes de caractères.
   static const Map<String, Map<AppLanguage, String>> _dictionary = {
+    // Écran Paramètres
     'settings_title': {
       AppLanguage.fr: 'Paramètres',
       AppLanguage.en: 'Settings',
@@ -14,7 +17,7 @@ class AppTranslations {
       AppLanguage.zh: '语言',
     },
 
-    // Navigation
+    // Navigation (Onglets)
     'exp_tab': {
       AppLanguage.fr: 'EXP',
       AppLanguage.en: 'EXP',
@@ -31,7 +34,7 @@ class AppTranslations {
       AppLanguage.zh: '规则',
     },
 
-    // Onglet EXP
+    // Écran Expédition
     'expedition_running': {
       AppLanguage.fr: 'Expédition en cours...',
       AppLanguage.en: 'Expedition in progress...',
@@ -85,7 +88,7 @@ class AppTranslations {
     'no_squares_snackbar': {
       AppLanguage.fr: 'Aucun carré parcouru pendant cette expédition.',
       AppLanguage.en: 'No squares covered during this expedition.',
-      AppLanguage.zh: '本次探险没有经过任何方块。',
+      AppLanguage.zh: '本次探险没有经过 any 方块。',
     },
     'transport_prompt_title': {
       AppLanguage.fr: 'Quel moyen de transport as-tu utilisé ?',
@@ -133,7 +136,7 @@ class AppTranslations {
       AppLanguage.zh: '进度',
     },
 
-    // Onglet MAP
+    // Écran Carte
     'map_title': {
       AppLanguage.fr: 'Ta carte — {count} carré(s)',
       AppLanguage.en: 'Your map — {count} square(s)',
@@ -158,19 +161,19 @@ class AppTranslations {
     },
   };
 
+  /// Récupère la traduction simple pour une clé et une langue données.
   static String t(String key, AppLanguage language) {
     return _dictionary[key]?[language] ?? key;
   }
 
-  /// Traduit une clé ET remplace le placeholder {count} par une valeur.
-  /// Exemple d'usage : tCount('map_title', lang, cells.length)
+  /// Traduit une clé et remplace le jeton {count} par le nombre fourni.
   static String tCount(String key, AppLanguage language, int count) {
     final template = t(key, language);
     return template.replaceAll('{count}', count.toString());
   }
 
-  /// Traduit une clé et remplace plusieurs placeholders à la fois.
-  /// Exemple : tVars('expedition_result', lang, {'count': '3', 'mode': 'Vélo'})
+  /// Traduit une clé et remplace dynamiquement plusieurs variables définies entre accolades.
+  /// Exemple : tVars('expedition_result', lang, {'count': '5', 'mode': 'Vélo'})
   static String tVars(String key, AppLanguage language, Map<String, String> vars) {
     var result = t(key, language);
     for (final entry in vars.entries) {

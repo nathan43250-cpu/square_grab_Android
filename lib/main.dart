@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
-import 'background_service.dart';
 import 'expedition_screen.dart';
 import 'floating_nav_bar.dart';
 import 'language_controller.dart';
@@ -12,13 +11,18 @@ import 'storage_service.dart';
 import 'translations.dart';
 import 'zigzag_transition.dart';
 
+/// Point d'entrée principal de l'application.
+/// Initialise les services nécessaires (port de communication pour les tâches en arrière-plan)
+/// et lance l'application.
 void main() {
   // Nécessaire pour la communication entre le service en arrière-plan et
-  // l'interface principale de l'app.
+  // l'interface principale de l'app (via flutter_foreground_task).
   FlutterForegroundTask.initCommunicationPort();
   runApp(const SquareGrabApp());
 }
 
+/// Widget racine de l'application Square Grab.
+/// Définit le thème global (sombre avec accents violets) et configure la navigation de base.
 class SquareGrabApp extends StatelessWidget {
   const SquareGrabApp({super.key});
 
@@ -35,11 +39,13 @@ class SquareGrabApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
       ),
+      // L'écran RootScreen gère le switch entre les différents onglets de l'app.
       home: const RootScreen(),
     );
   }
 }
 
+/// Écran principal gérant le cycle de vie du stockage et le basculement entre les vues.
 class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
 
@@ -48,21 +54,30 @@ class RootScreen extends StatefulWidget {
 }
 
 class _RootScreenState extends State<RootScreen> {
+  // Instance du service de stockage Hive pour les carrés collectés.
   final StorageService _storage = StorageService();
+  
+  // Instance du contrôleur de langue pour gérer l'internationalisation.
   final LanguageController _languageController = LanguageController();
+  
+  // Flag pour savoir si le stockage a fini son initialisation.
   bool _ready = false;
+  
+  // Index de l'onglet actuellement affiché.
   int _currentIndex = 0;
 
-  // Sert à forcer le rafraîchissement de la carte quand une expédition
-  // vient d'être validée.
+  // Clé de rafraîchissement incrémentée à chaque nouvelle expédition validée,
+  // forçant MapScreen à se reconstruire pour afficher les nouveaux carrés.
   int _mapRefreshKey = 0;
 
   @override
   void initState() {
     super.initState();
+    // Initialisation asynchrone du service de stockage persistant.
     _storage.init().then((_) => setState(() => _ready = true));
   }
 
+  /// Ouvre l'écran des paramètres pour changer la langue de l'application.
   void _openSettings() {
     Navigator.push(
       context,
@@ -74,17 +89,21 @@ class _RootScreenState extends State<RootScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Affiche un indicateur de chargement tant que le stockage n'est pas prêt.
     if (!_ready) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    // Définition des écrans correspondant aux 3 onglets.
     final screens = [
       ExpeditionScreen(
         storage: _storage,
         languageController: _languageController,
+        // Callback appelé quand une expédition se termine pour notifier la carte.
         onExpeditionCommitted: () => setState(() => _mapRefreshKey++),
       ),
       MapScreen(
+        // La ValueKey force la reconstruction complète du widget MapScreen.
         key: ValueKey(_mapRefreshKey),
         storage: _storage,
         languageController: _languageController,
@@ -92,14 +111,13 @@ class _RootScreenState extends State<RootScreen> {
       const RulesScreen(),
     ];
 
-    // ListenableBuilder ici permet à toute cette partie (barre de nav
-    // comprise) de se redessiner automatiquement dès que la langue change
-    // dans le controller, sans avoir à passer par un setState manuel.
+    // ListenableBuilder réagit automatiquement aux changements dans LanguageController.
     return ListenableBuilder(
       listenable: _languageController,
       builder: (context, _) {
         final lang = _languageController.current;
         return Scaffold(
+          // extendBody permet au contenu de passer SOUS la barre de navigation flottante.
           extendBody: true,
           appBar: AppBar(
             title: const Text('Square Grab'),
@@ -110,7 +128,9 @@ class _RootScreenState extends State<RootScreen> {
               ),
             ],
           ),
+          // ZigzagPageSwitcher assure une transition fluide entre les onglets.
           body: ZigzagPageSwitcher(index: _currentIndex, children: screens),
+          // Barre de navigation flottante personnalisée.
           bottomNavigationBar: FloatingNavBar(
             currentIndex: _currentIndex,
             onTap: (i) => setState(() => _currentIndex = i),

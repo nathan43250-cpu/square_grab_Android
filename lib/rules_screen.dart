@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'transport_mode.dart';
 
+/// Écran explicatif détaillant les règles du jeu Square Grab.
 class RulesScreen extends StatelessWidget {
   const RulesScreen({super.key});
 
@@ -22,7 +23,7 @@ class RulesScreen extends StatelessWidget {
           ),
           const _RuleStep(
             number: '2',
-            text: 'Déplace-toi dans le monde réel : chaque case de ~100m que tu traverses est enregistrée.',
+            text: 'Déplace-toi dans le monde réel : chaque case de ~200m que tu traverses est enregistrée.',
           ),
           const _RuleStep(
             number: '3',
@@ -42,6 +43,7 @@ class RulesScreen extends StatelessWidget {
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
+          // Affiche la liste des modes de transport avec leurs couleurs et icônes respectives.
           for (final mode in TransportMode.values)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
@@ -68,6 +70,7 @@ class RulesScreen extends StatelessWidget {
   }
 }
 
+/// Composant interne pour afficher une étape de règle numérotée.
 class _RuleStep extends StatelessWidget {
   final String number;
   final String text;

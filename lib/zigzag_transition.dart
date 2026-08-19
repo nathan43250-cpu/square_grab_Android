@@ -2,15 +2,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-/// Remplace un IndexedStack classique par une version animée : quand
-/// [index] change, une "photo" figée de l'ancien écran balaie l'écran
-/// pour se retirer et révéler le nouvel écran (déjà en train de charger
-/// juste en dessous, ce qui évite tout temps mort à la fin du balayage).
-///
-/// Contrairement à une v1 naïve, on ne garde JAMAIS deux écrans lourds
-/// (avec leurs cartes OpenStreetMap actives) montés en même temps — un
-/// seul écran vivant à la fois, plus une image statique par-dessus
-/// pendant la transition seulement. Beaucoup plus léger.
+/// Composant de transition personnalisé pour basculer entre les pages.
+/// Il remplace le changement brusque d'un IndexedStack par une animation de balayage.
+/// Concept : il capture une image de l'écran sortant et l'anime pour révéler l'écran entrant.
 class ZigzagPageSwitcher extends StatefulWidget {
   final int index;
   final List<Widget> children;
@@ -29,12 +23,16 @@ class ZigzagPageSwitcher extends StatefulWidget {
 
 class _ZigzagPageSwitcherState extends State<ZigzagPageSwitcher>
     with SingleTickerProviderStateMixin {
+  // Clé pour identifier la zone à capturer en image.
   final GlobalKey _boundaryKey = GlobalKey();
+  
   late final AnimationController _controller;
   late final Animation<double> _animation;
 
   late int _currentIndex;
   bool _forward = true;
+  
+  // Photo statique de l'ancien écran utilisée pendant la transition.
   ui.Image? _snapshot;
 
   @override
@@ -48,16 +46,17 @@ class _ZigzagPageSwitcherState extends State<ZigzagPageSwitcher>
   @override
   void didUpdateWidget(covariant ZigzagPageSwitcher oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Déclenche la transition si l'index change.
     if (widget.index != _currentIndex) {
       _forward = widget.index > _currentIndex;
       _switchWithSnapshot(widget.index);
     }
   }
 
-  /// Capture l'écran actuel en image, PUIS bascule immédiatement l'écran
-  /// vivant vers le nouvel onglet (qui commence donc son chargement tout
-  /// de suite, caché sous la photo pendant que celle-ci glisse et se
-  /// retire progressivement).
+  /// Procédure de transition :
+  /// 1. Capture l'état actuel des pixels via un RenderRepaintBoundary.
+  /// 2. Change l'index de l'IndexedStack pour que le nouvel écran commence à se construire dessous.
+  /// 3. Anime le retrait de l'image capturée.
   Future<void> _switchWithSnapshot(int newIndex) async {
     ui.Image? image;
     try {
@@ -67,7 +66,7 @@ class _ZigzagPageSwitcherState extends State<ZigzagPageSwitcher>
         pixelRatio: MediaQuery.of(context).devicePixelRatio,
       );
     } catch (_) {
-      // En cas d'échec (rare), on bascule quand même, juste sans transition visuelle.
+      // Si la capture échoue, on change simplement l'index sans animation.
     }
 
     if (!mounted) return;
@@ -76,6 +75,7 @@ class _ZigzagPageSwitcherState extends State<ZigzagPageSwitcher>
       _currentIndex = newIndex;
     });
 
+    // Lance l'animation de retrait de la photo.
     _controller.forward(from: 0).whenComplete(() {
       if (mounted) setState(() => _snapshot = null);
     });
@@ -93,13 +93,12 @@ class _ZigzagPageSwitcherState extends State<ZigzagPageSwitcher>
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Le seul écran réellement "vivant" à tout instant : déjà sur le
-        // nouvel onglet dès le début de la transition.
+        // La pile d'écrans réelle. Seul l'écran à _currentIndex est "vivant".
         RepaintBoundary(
           key: _boundaryKey,
           child: IndexedStack(index: _currentIndex, children: widget.children),
         ),
-        // La photo de l'ancien écran, qui se retire progressivement.
+        // Superposition de l'image de l'ancien écran qui se réduit.
         if (_snapshot != null)
           AnimatedBuilder(
             animation: _animation,
@@ -123,12 +122,10 @@ class _ZigzagPageSwitcherState extends State<ZigzagPageSwitcher>
   }
 }
 
-/// Rétrécit progressivement le rectangle visible de la photo, ancré soit
-/// à droite (elle se retire vers la gauche), soit à gauche (elle se
-/// retire vers la droite), selon [anchorRight].
+/// Clipper personnalisé qui réduit la largeur visible d'un rectangle.
 class _ShrinkWipeClipper extends CustomClipper<Rect> {
-  final double progress;
-  final bool anchorRight;
+  final double progress;     // Progression de l'animation (0.0 à 1.0).
+  final bool anchorRight;    // Sens du retrait (vers la gauche ou la droite).
 
   const _ShrinkWipeClipper({required this.progress, required this.anchorRight});
 
@@ -136,8 +133,10 @@ class _ShrinkWipeClipper extends CustomClipper<Rect> {
   Rect getClip(Size size) {
     final edgeX = size.width * progress;
     if (anchorRight) {
+      // L'image se retire de la gauche vers la droite.
       return Rect.fromLTRB(edgeX, 0, size.width, size.height);
     } else {
+      // L'image se retire de la droite vers la gauche.
       return Rect.fromLTRB(0, 0, size.width - edgeX, size.height);
     }
   }
