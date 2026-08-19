@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'background_service.dart';
+import 'floating_nav_bar.dart';
 import 'grid_utils.dart';
 import 'language_controller.dart';
 import 'storage_service.dart';
@@ -32,6 +34,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
   final MapController _mapController = MapController();
   StreamSubscription<Position>? _positionSub;
 
+  // En dessous de ce niveau de zoom, on ne dessine plus le quadrillage fin.
   static const double _minZoomForGrid = 14;
 
   bool _isRunning = false;
@@ -43,7 +46,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
   Position? _lastPosition;
   double _distanceMeters = 0;
   DateTime? _startedAt;
-  String? _errorMessageKey;
+  String? _errorMessageKey; // on stocke la CLÉ de traduction, pas le texte
 
   AppLanguage get _lang => widget.languageController.current;
 
@@ -58,6 +61,9 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
   void dispose() {
     _positionSub?.cancel();
     _gridDebounce?.cancel();
+    // Sécurité : si l'écran est détruit pendant une expédition en cours
+    // (cas rare), on arrête le service pour ne pas laisser une
+    // notification "fantôme" qui ne correspond plus à rien.
     if (_isRunning) {
       ExpeditionForegroundService.stop();
     }
@@ -107,6 +113,9 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
     final granted = await _ensurePermission();
     if (!granted) return;
 
+    // On s'assure que la permission de notification est bien accordée
+    // AVANT de démarrer le service : sans elle, Android affiche une
+    // notification système vide/générique à la place de la nôtre.
     await ExpeditionForegroundService.requestPermissions();
 
     setState(() {
@@ -153,6 +162,8 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
       _sessionCells.add(cell);
     });
 
+    // On ne rafraîchit la notification que si un nouveau carré vient
+    // d'être ajouté, pour éviter de la spammer à chaque léger mouvement.
     if (isNewCell) {
       ExpeditionForegroundService.updateText(
         AppTranslations.tCount('notification_text', _lang, _sessionCells.length),
@@ -256,6 +267,8 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Tout l'écran est enveloppé dans ce ListenableBuilder pour se
+    // redessiner automatiquement dès que la langue change.
     return ListenableBuilder(
       listenable: widget.languageController,
       builder: (context, _) => _buildContent(context),
@@ -268,6 +281,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
     }
 
     if (_currentLatLng == null) {
+      // Pas de position dispo (permission refusée ou GPS désactivé).
       return Scaffold(
         body: Center(
           child: Padding(
@@ -322,6 +336,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.square_grab',
               ),
+              // Quadrillage complet des cases visibles à l'écran (contour seul).
               PolygonLayer(
                 polygons: _visibleGridCells
                     .where((cell) =>
@@ -335,6 +350,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
                         ))
                     .toList(),
               ),
+              // Carrés déjà collectés lors de précédentes expéditions (pour se repérer).
               PolygonLayer(
                 polygons: widget.storage.allCollectedCells
                     .where((c) => !_sessionCells.contains(c.cell))
@@ -346,6 +362,7 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
                         ))
                     .toList(),
               ),
+              // Carrés collectés pendant l'expédition en cours.
               PolygonLayer(
                 polygons: _sessionCells
                     .map((cell) => Polygon(
@@ -368,58 +385,81 @@ class _ExpeditionScreenState extends State<ExpeditionScreen> {
               ),
             ],
           ),
+          // Panneau de stats en haut, visible seulement pendant une expédition.
           if (_isRunning)
             Positioned(
               top: 12,
               left: 12,
               right: 12,
               child: SafeArea(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.92),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black26)],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _StatChip(
-                        icon: Icons.grid_on,
-                        label: AppTranslations.tCount(
-                            'stat_squares_count', _lang, _sessionCells.length),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHigh
+                            .withOpacity(0.78),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withOpacity(0.08)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.35),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
-                      _StatChip(
-                        icon: Icons.straighten,
-                        label: '${(_distanceMeters / 1000).toStringAsFixed(2)} km',
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceEvenly,
+                        runSpacing: 6,
+                        spacing: 16,
+                        children: [
+                          _StatChip(
+                            icon: Icons.grid_on,
+                            label: AppTranslations.tCount(
+                                'stat_squares_count', _lang, _sessionCells.length),
+                          ),
+                          _StatChip(
+                            icon: Icons.emoji_events_outlined,
+                            label: AppTranslations.tCount(
+                                'stat_total_squares', _lang, widget.storage.totalCollected),
+                          ),
+                          _StatChip(
+                            icon: Icons.straighten,
+                            label: '${(_distanceMeters / 1000).toStringAsFixed(2)} km',
+                          ),
+                          if (_startedAt != null)
+                            _StatChip(
+                              icon: Icons.timer,
+                              label: _formatDuration(
+                                  DateTime.now().difference(_startedAt!)),
+                            ),
+                        ],
                       ),
-                      if (_startedAt != null)
-                        _StatChip(
-                          icon: Icons.timer,
-                          label: _formatDuration(DateTime.now().difference(_startedAt!)),
-                        ),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
+          // Bouton démarrer/terminer en bas.
           Positioned(
             left: 16,
             right: 16,
-            bottom: 16,
-            child: SafeArea(
-              top: false,
-              child: SizedBox(
-                height: 56,
-                child: ElevatedButton.icon(
-                  onPressed: _isRunning ? _stopExpedition : _startExpedition,
-                  icon: Icon(_isRunning ? Icons.stop : Icons.play_arrow),
-                  label: Text(AppTranslations.t(
-                      _isRunning ? 'stop_expedition' : 'start_expedition', _lang)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _isRunning ? Colors.redAccent : null,
-                    elevation: 4,
-                  ),
+            bottom: floatingNavBarClearance,
+            child: SizedBox(
+              height: 56,
+              child: ElevatedButton.icon(
+                onPressed: _isRunning ? _stopExpedition : _startExpedition,
+                icon: Icon(_isRunning ? Icons.stop : Icons.play_arrow),
+                label: Text(AppTranslations.t(
+                    _isRunning ? 'stop_expedition' : 'start_expedition', _lang)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _isRunning ? Colors.redAccent : null,
+                  elevation: 4,
                 ),
               ),
             ),
@@ -438,12 +478,20 @@ class _StatChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: Colors.deepPurple),
+        Icon(icon, size: 16, color: scheme.primary),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: scheme.onSurface,
+          ),
+        ),
       ],
     );
   }

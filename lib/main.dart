@@ -10,8 +10,11 @@ import 'rules_screen.dart';
 import 'settings_screen.dart';
 import 'storage_service.dart';
 import 'translations.dart';
+import 'zigzag_transition.dart';
 
 void main() {
+  // Nécessaire pour la communication entre le service en arrière-plan et
+  // l'interface principale de l'app.
   FlutterForegroundTask.initCommunicationPort();
   runApp(const SquareGrabApp());
 }
@@ -23,7 +26,8 @@ class SquareGrabApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Square Grab',
-
+      // Thème sombre par défaut : le violet reste la couleur d'accent,
+      // mais avec des surfaces sombres pour un rendu plus moderne.
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -49,6 +53,8 @@ class _RootScreenState extends State<RootScreen> {
   bool _ready = false;
   int _currentIndex = 0;
 
+  // Sert à forcer le rafraîchissement de la carte quand une expédition
+  // vient d'être validée.
   int _mapRefreshKey = 0;
 
   @override
@@ -86,11 +92,15 @@ class _RootScreenState extends State<RootScreen> {
       const RulesScreen(),
     ];
 
+    // ListenableBuilder ici permet à toute cette partie (barre de nav
+    // comprise) de se redessiner automatiquement dès que la langue change
+    // dans le controller, sans avoir à passer par un setState manuel.
     return ListenableBuilder(
       listenable: _languageController,
       builder: (context, _) {
         final lang = _languageController.current;
         return Scaffold(
+          extendBody: true,
           appBar: AppBar(
             title: const Text('Square Grab'),
             actions: [
@@ -100,7 +110,7 @@ class _RootScreenState extends State<RootScreen> {
               ),
             ],
           ),
-          body: IndexedStack(index: _currentIndex, children: screens),
+          body: ZigzagPageSwitcher(index: _currentIndex, children: screens),
           bottomNavigationBar: FloatingNavBar(
             currentIndex: _currentIndex,
             onTap: (i) => setState(() => _currentIndex = i),
