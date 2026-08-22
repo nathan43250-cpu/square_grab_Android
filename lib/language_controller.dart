@@ -1,21 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
-/// Liste des langues supportées par l'application.
 enum AppLanguage { fr, en, zh }
 
-/// Gère l'état global de la langue choisie par l'utilisateur.
-/// Étend ChangeNotifier pour permettre aux widgets de se reconstruire automatiquement.
+/// Gère la langue actuelle de l'application, la sauvegarde localement et
+/// la recharge au démarrage. Au tout premier lancement (rien de sauvegardé
+/// encore), la langue par défaut est l'anglais.
 class LanguageController extends ChangeNotifier {
-  // Langue par défaut : Français.
-  AppLanguage _current = AppLanguage.fr;
+  static const String _boxName = 'app_prefs';
+  static const String _languageKey = 'language';
 
-  /// Langue actuelle.
+  AppLanguage _current = AppLanguage.en;
+
   AppLanguage get current => _current;
 
-  /// Change la langue et notifie tous les écouteurs (ListenableBuilder, etc.).
-  void setLanguage(AppLanguage language) {
-    if (_current == language) return;
+  /// À appeler une fois au démarrage de l'app, avant d'afficher l'UI :
+  /// charge la langue précédemment choisie si elle existe.
+  Future<void> init() async {
+    await Hive.initFlutter();
+    final box = await Hive.openBox<String>(_boxName);
+    final saved = box.get(_languageKey);
+    if (saved != null) {
+      _current = AppLanguage.values.firstWhere(
+        (l) => l.name == saved,
+        orElse: () => AppLanguage.en,
+      );
+    }
+    // Pas de notifyListeners() ici : l'écran principal attend la fin de
+    // ce init() avant son tout premier affichage, donc _current est déjà
+    // la bonne valeur dès le premier build.
+  }
+
+  Future<void> setLanguage(AppLanguage language) async {
     _current = language;
     notifyListeners();
+    final box = await Hive.openBox<String>(_boxName);
+    await box.put(_languageKey, language.name);
   }
 }

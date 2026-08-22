@@ -1,11 +1,8 @@
 import 'language_controller.dart';
 
-/// Système de traduction minimaliste pour l'application.
-/// Gère le français, l'anglais et le chinois.
+/// Petit dictionnaire de traductions.
 class AppTranslations {
-  /// Dictionnaire centralisé des chaînes de caractères.
   static const Map<String, Map<AppLanguage, String>> _dictionary = {
-    // Écran Paramètres
     'settings_title': {
       AppLanguage.fr: 'Paramètres',
       AppLanguage.en: 'Settings',
@@ -17,7 +14,7 @@ class AppTranslations {
       AppLanguage.zh: '语言',
     },
 
-    // Navigation (Onglets)
+    // Navigation
     'exp_tab': {
       AppLanguage.fr: 'EXP',
       AppLanguage.en: 'EXP',
@@ -34,7 +31,78 @@ class AppTranslations {
       AppLanguage.zh: '规则',
     },
 
-    // Écran Expédition
+    // Onglet RULE
+    'how_to_play_title': {
+      AppLanguage.fr: 'Comment jouer',
+      AppLanguage.en: 'How to play',
+      AppLanguage.zh: '游戏方法',
+    },
+    'rule_step_1_title': {
+      AppLanguage.fr: 'Démarre une expédition',
+      AppLanguage.en: 'Start an expedition',
+      AppLanguage.zh: '开始探险',
+    },
+    'rule_step_1_text': {
+      AppLanguage.fr: "Va dans l'onglet EXP et appuie sur \"Démarrer l'expédition\".",
+      AppLanguage.en: 'Go to the EXP tab and tap "Start expedition".',
+      AppLanguage.zh: '前往"探险"标签，点击"开始探险"。',
+    },
+    'rule_step_2_title': {
+      AppLanguage.fr: 'Déplace-toi',
+      AppLanguage.en: 'Move around',
+      AppLanguage.zh: '开始移动',
+    },
+    'rule_step_2_text': {
+      AppLanguage.fr:
+          'Chaque case de ~200m que tu traverses dans le monde réel est enregistrée automatiquement.',
+      AppLanguage.en:
+          'Every ~200m square you cross in the real world is automatically recorded.',
+      AppLanguage.zh: '你在现实世界中经过的每个约200米方格都会被自动记录。',
+    },
+    'rule_step_3_title': {
+      AppLanguage.fr: "Termine l'expédition",
+      AppLanguage.en: 'End the expedition',
+      AppLanguage.zh: '结束探险',
+    },
+    'rule_step_3_text': {
+      AppLanguage.fr: 'Appuie sur "Terminer" et choisis le moyen de transport que tu as utilisé.',
+      AppLanguage.en: 'Tap "End" and choose the transport you used.',
+      AppLanguage.zh: '点击"结束"并选择你使用的交通方式。',
+    },
+    'rule_step_4_title': {
+      AppLanguage.fr: 'Récupère tes carrés',
+      AppLanguage.en: 'Claim your squares',
+      AppLanguage.zh: '获得你的方块',
+    },
+    'rule_step_4_text': {
+      AppLanguage.fr: 'Les carrés parcourus sont ajoutés à ta carte, colorés selon le transport choisi.',
+      AppLanguage.en: 'Squares you crossed are added to your map, colored by the transport used.',
+      AppLanguage.zh: '经过的方块会被添加到地图上，并根据所用交通方式着色。',
+    },
+    'rule_step_5_title': {
+      AppLanguage.fr: 'La hiérarchie des couleurs',
+      AppLanguage.en: 'The color hierarchy',
+      AppLanguage.zh: '颜色等级',
+    },
+    'rule_step_5_text': {
+      AppLanguage.fr:
+          'Marche > Vélo > Voiture. Un carré ne change de couleur que si tu le retraverses avec un transport plus "actif" — jamais dans l\'autre sens.',
+      AppLanguage.en:
+          'Walk > Bike > Car. A square only changes color if you cross it again with a more "active" transport — never the other way around.',
+      AppLanguage.zh: '步行 > 自行车 > 汽车。只有用更"积极"的交通方式再次经过时，方块颜色才会改变——反之则不会。',
+    },
+    'color_legend_title': {
+      AppLanguage.fr: 'Légende des couleurs',
+      AppLanguage.en: 'Color legend',
+      AppLanguage.zh: '颜色图例',
+    },
+    'color_legend_subtitle': {
+      AppLanguage.fr: 'Priorité du plus fort au plus faible',
+      AppLanguage.en: 'Priority from strongest to weakest',
+      AppLanguage.zh: '优先级从高到低',
+    },
+
+    // Onglet EXP
     'expedition_running': {
       AppLanguage.fr: 'Expédition en cours...',
       AppLanguage.en: 'Expedition in progress...',
@@ -88,7 +156,7 @@ class AppTranslations {
     'no_squares_snackbar': {
       AppLanguage.fr: 'Aucun carré parcouru pendant cette expédition.',
       AppLanguage.en: 'No squares covered during this expedition.',
-      AppLanguage.zh: '本次探险没有经过 any 方块。',
+      AppLanguage.zh: '本次探险没有经过任何方块。',
     },
     'transport_prompt_title': {
       AppLanguage.fr: 'Quel moyen de transport as-tu utilisé ?',
@@ -109,6 +177,11 @@ class AppTranslations {
       AppLanguage.fr: '{count} nouveau(x) carré(s) collecté(s) en {mode} !',
       AppLanguage.en: '{count} new square(s) collected by {mode}!',
       AppLanguage.zh: '通过{mode}收集了{count}个新方块！',
+    },
+    'expedition_result_with_upgrade': {
+      AppLanguage.fr: '{count} nouveau(x) + {upgraded} amélioré(s) en {mode} !',
+      AppLanguage.en: '{count} new + {upgraded} upgraded, by {mode}!',
+      AppLanguage.zh: '通过{mode}：{count}个新方块，{upgraded}个升级！',
     },
     'stat_squares_count': {
       AppLanguage.fr: '{count} carrés',
@@ -136,7 +209,7 @@ class AppTranslations {
       AppLanguage.zh: '进度',
     },
 
-    // Écran Carte
+    // Onglet MAP
     'map_title': {
       AppLanguage.fr: 'Ta carte — {count} carré(s)',
       AppLanguage.en: 'Your map — {count} square(s)',
@@ -161,19 +234,19 @@ class AppTranslations {
     },
   };
 
-  /// Récupère la traduction simple pour une clé et une langue données.
   static String t(String key, AppLanguage language) {
     return _dictionary[key]?[language] ?? key;
   }
 
-  /// Traduit une clé et remplace le jeton {count} par le nombre fourni.
+  /// Traduit une clé ET remplace le placeholder {count} par une valeur.
+  /// Exemple d'usage : tCount('map_title', lang, cells.length)
   static String tCount(String key, AppLanguage language, int count) {
     final template = t(key, language);
     return template.replaceAll('{count}', count.toString());
   }
 
-  /// Traduit une clé et remplace dynamiquement plusieurs variables définies entre accolades.
-  /// Exemple : tVars('expedition_result', lang, {'count': '5', 'mode': 'Vélo'})
+  /// Traduit une clé et remplace plusieurs placeholders à la fois.
+  /// Exemple : tVars('expedition_result', lang, {'count': '3', 'mode': 'Vélo'})
   static String tVars(String key, AppLanguage language, Map<String, String> vars) {
     var result = t(key, language);
     for (final entry in vars.entries) {

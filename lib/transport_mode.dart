@@ -2,18 +2,13 @@ import 'package:flutter/material.dart';
 import 'language_controller.dart';
 import 'translations.dart';
 
-/// Définit les différents types de déplacement autorisés pour capturer des carrés.
+/// Les moyens de transport disponibles à la fin d'une expédition.
+/// Chaque mode a sa propre couleur pour distinguer les carrés sur la carte.
 enum TransportMode {
-  /// Marche, course à pied ou randonnée.
   walk,
-  
-  /// Vélo, trottinette non électrique ou autre moyen similaire.
   bike,
-  
-  /// Voiture, bus, train ou autre moyen motorisé.
   car;
 
-  /// Libellé par défaut (français).
   String get label {
     switch (this) {
       case TransportMode.walk:
@@ -25,7 +20,6 @@ enum TransportMode {
     }
   }
 
-  /// Icône Material associée au mode.
   IconData get icon {
     switch (this) {
       case TransportMode.walk:
@@ -37,27 +31,42 @@ enum TransportMode {
     }
   }
 
-  /// Couleur distinctive utilisée sur la carte et dans la légende.
   Color get color {
     switch (this) {
       case TransportMode.walk:
-        return const Color(0xFF2ECC71); // Vert émeraude
+        return const Color(0xFF2ECC71); // vert
       case TransportMode.bike:
-        return const Color(0xFFE67E22); // Orange carotte
+        return const Color(0xFFE67E22); // orange
       case TransportMode.car:
-        return const Color(0xFFE74C3C); // Rouge alizarine
+        return const Color(0xFFE74C3C); // rouge
     }
   }
 
-  /// Clé unique utilisée pour enregistrer le mode dans la base Hive.
+  /// Nom stocké en base (String -> enum lors de la relecture).
   String get storageKey => name;
 
-  /// Récupère le libellé traduit pour ce mode.
+  /// Niveau de priorité pour la règle de remplacement des couleurs sur la
+  /// carte : Marche > Vélo > Voiture. Un carré déjà collecté ne change de
+  /// couleur que si le nouveau transport a une priorité STRICTEMENT plus
+  /// élevée que celui déjà enregistré (jamais l'inverse).
+  int get priority {
+    switch (this) {
+      case TransportMode.walk:
+        return 2;
+      case TransportMode.bike:
+        return 1;
+      case TransportMode.car:
+        return 0;
+    }
+  }
+
+  /// Libellé traduit selon la langue actuelle (à utiliser dans l'UI).
+  /// Utilise les clés 'transport_walk', 'transport_bike', 'transport_car'
+  /// du dictionnaire, qui correspondent exactement au nom de l'enum.
   String labelFor(AppLanguage language) {
     return AppTranslations.t('transport_$name', language);
   }
 
-  /// Recrée une instance de TransportMode à partir d'une clé stockée en base.
   static TransportMode fromStorageKey(String key) {
     return TransportMode.values.firstWhere(
       (m) => m.storageKey == key,

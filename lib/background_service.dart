@@ -1,13 +1,19 @@
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
-/// Gère le service de premier plan (Foreground Service) Android.
-/// Indispensable pour continuer à recevoir des mises à jour GPS précises 
-/// même lorsque l'utilisateur met l'application en arrière-plan ou éteint son écran.
+/// Gère le service de premier plan (foreground service) qui protège
+/// l'application pendant qu'une expédition est en cours : Android affiche
+/// une notification permanente et ne tue pas le processus de l'app tant
+/// que ce service tourne, même si l'utilisateur change d'application.
+///
+/// Le suivi GPS lui-même continue d'être géré normalement dans
+/// ExpeditionScreen (isolate principal) — ce service ne fait pas le
+/// tracking, il sert uniquement à garder le processus vivant et à
+/// afficher la notification.
 class ExpeditionForegroundService {
   static bool _initialized = false;
   static const int _serviceId = 1000;
 
-  /// Configure les paramètres du service (canaux de notification, options Android/iOS).
+  /// À appeler une seule fois avant le premier démarrage du service.
   static void init() {
     if (_initialized) return;
     _initialized = true;
@@ -18,22 +24,24 @@ class ExpeditionForegroundService {
         channelName: "Suivi d'expédition",
         channelDescription:
             "Notification affichée pendant qu'une expédition est en cours.",
-        onlyAlertOnce: true, // Évite de faire vibrer le téléphone à chaque mise à jour du texte.
+        onlyAlertOnce: true,
       ),
       iosNotificationOptions: const IOSNotificationOptions(
         showNotification: true,
         playSound: false,
       ),
       foregroundTaskOptions: ForegroundTaskOptions(
-        eventAction: ForegroundTaskEventAction.repeat(60000), // Intervalle de répétition interne.
+        eventAction: ForegroundTaskEventAction.repeat(60000),
         autoRunOnBoot: false,
-        allowWakeLock: true,   // Empêche le CPU de s'endormir complètement.
+        allowWakeLock: true,
         allowWifiLock: false,
       ),
     );
   }
 
-  /// Demande explicitement la permission d'afficher des notifications (obligatoire sur Android 13+).
+  /// Demande la permission d'affichage de notification (nécessaire sur
+  /// Android 13+). À appeler une fois, par exemple au tout premier
+  /// lancement de l'écran EXP.
   static Future<void> requestPermissions() async {
     final notifPermission = await FlutterForegroundTask.checkNotificationPermission();
     if (notifPermission != NotificationPermission.granted) {
@@ -41,7 +49,6 @@ class ExpeditionForegroundService {
     }
   }
 
-  /// Démarre le service. Si déjà lancé, met à jour les textes de la notification.
   static Future<void> start({required String title, required String text}) async {
     if (await FlutterForegroundTask.isRunningService) {
       await FlutterForegroundTask.updateService(
@@ -58,14 +65,14 @@ class ExpeditionForegroundService {
     );
   }
 
-  /// Met à jour uniquement le texte descriptif de la notification (ex: nombre de carrés).
+  /// Met à jour uniquement le texte de la notification (ex: nombre de
+  /// carrés collectés en direct), sans redémarrer le service.
   static Future<void> updateText(String text) async {
     if (await FlutterForegroundTask.isRunningService) {
       await FlutterForegroundTask.updateService(notificationText: text);
     }
   }
 
-  /// Arrête définitivement le service et supprime la notification.
   static Future<void> stop() async {
     if (await FlutterForegroundTask.isRunningService) {
       await FlutterForegroundTask.stopService();
@@ -73,15 +80,18 @@ class ExpeditionForegroundService {
   }
 }
 
-/// Point d'entrée obligatoire pour le handler de tâche (doit être top-level et @pragma).
+// Le callback doit être une fonction de haut niveau (top-level), pas une
+// méthode de classe : c'est une exigence du plugin, car elle est lancée
+// dans un isolate séparé dédié au service.
 @pragma('vm:entry-point')
 void startCallback() {
   FlutterForegroundTask.setTaskHandler(_ExpeditionTaskHandler());
 }
 
-/// Handler gérant les événements du service en arrière-plan.
-/// Pour cette application, on utilise principalement le service pour son aspect "Keep Alive"
-/// et non pour effectuer des calculs lourds séparés du thread UI.
+/// Handler minimal : il ne fait volontairement rien de particulier à
+/// chaque "tick". Son seul rôle est de maintenir le service actif, ce qui
+/// protège le processus de l'application contre l'arrêt forcé par le
+/// système Android tant qu'une expédition est en cours.
 class _ExpeditionTaskHandler extends TaskHandler {
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {}

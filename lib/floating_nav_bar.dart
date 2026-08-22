@@ -1,15 +1,17 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 
-/// Hauteur de dégagement à prévoir en bas des écrans pour ne pas que le contenu
-/// soit masqué par la barre de navigation flottante.
+/// Hauteur approximative réservée par la barre flottante en bas, à utiliser
+/// pour remonter les boutons/éléments des écrans qui passent maintenant
+/// derrière elle (carte plein écran, etc.).
 const double floatingNavBarClearance = 112;
 
-/// Structure de données pour un élément de la barre de navigation.
+/// Décrit une entrée de la barre de navigation : une icône "non
+/// sélectionnée" (contour), une icône "sélectionnée" (pleine), et un label.
 class NavItem {
-  final IconData icon;          // Icône affichée quand l'onglet n'est pas sélectionné.
-  final IconData selectedIcon;  // Icône affichée quand l'onglet est actif.
-  final String label;           // Texte de l'onglet.
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
 
   const NavItem({
     required this.icon,
@@ -18,8 +20,9 @@ class NavItem {
   });
 }
 
-/// Barre de navigation personnalisée avec un design "flottant" et un effet de flou.
-/// Elle se place au-dessus du contenu et utilise un ClipRRect pour son design arrondi.
+/// Barre de navigation "ovale flottante" : juste une capsule compacte,
+/// centrée en bas de l'écran, avec un effet de flou (comme du verre dépoli)
+/// pour bien se détacher du contenu qui défile derrière elle (la carte).
 class FloatingNavBar extends StatelessWidget {
   final int currentIndex;
   final List<NavItem> items;
@@ -43,7 +46,6 @@ class FloatingNavBar extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Conteneur arrondi avec flou d'arrière-plan (effet verre dépoli).
             ClipRRect(
               borderRadius: BorderRadius.circular(40),
               child: BackdropFilter(
@@ -51,12 +53,12 @@ class FloatingNavBar extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: scheme.surfaceContainerHigh.withValues(alpha: 0.78),
+                    color: scheme.surfaceContainerHigh.withOpacity(0.78),
                     borderRadius: BorderRadius.circular(40),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                    border: Border.all(color: Colors.white.withOpacity(0.08)),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.4),
+                        color: Colors.black.withOpacity(0.4),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -65,7 +67,6 @@ class FloatingNavBar extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Génération dynamique des boutons de navigation.
                       for (var i = 0; i < items.length; i++) ...[
                         if (i != 0) const SizedBox(width: 6),
                         _NavItemButton(
@@ -86,7 +87,6 @@ class FloatingNavBar extends StatelessWidget {
   }
 }
 
-/// Bouton individuel à l'intérieur de la barre flottante, avec une animation d'expansion.
 class _NavItemButton extends StatelessWidget {
   final NavItem item;
   final bool selected;
@@ -108,7 +108,6 @@ class _NavItemButton extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutCubic,
-        // Largeur variable : s'étend quand sélectionné pour afficher le label.
         width: selected ? 116 : 68,
         height: 56,
         padding: const EdgeInsets.symmetric(horizontal: 12),

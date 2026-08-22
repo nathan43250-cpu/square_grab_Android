@@ -3,7 +3,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'grid_utils.dart';
 import 'transport_mode.dart';
 
-/// Objet métier représentant une cellule qui a été validée par l'utilisateur.
+/// Une cellule collectée, avec le mode de transport utilisé pour l'obtenir
+/// et la date de collecte.
 class CollectedCell {
   final GridCell cell;
   final TransportMode mode;
@@ -16,54 +17,82 @@ class CollectedCell {
   });
 }
 
-/// Service gérant la persistance des carrés collectés via la base de données Hive.
+/// Résultat d'une expédition validée : combien de cases étaient
+/// entièrement nouvelles, et combien existaient déjà mais ont changé de
+/// couleur car le nouveau transport était plus prioritaire.
+class ExpeditionCommitResult {
+  final int newCells;
+  final int upgradedCells;
+
+  const ExpeditionCommitResult({required this.newCells, required this.upgradedCells});
+}
+
+/// Gère la persistance locale des cellules collectées.
+/// Stocke pour chaque cellule (clé "lat_lng") un JSON {mode, timestamp}.
 class StorageService {
-  /// Nom du conteneur Hive pour le stockage.
   static const String _boxName = 'collected_cells_v2';
-  
-  /// Instance de la "boîte" (table) Hive.
   late Box<String> _box;
 
-  /// Initialise Hive pour Flutter et ouvre la boîte de stockage.
   Future<void> init() async {
     await Hive.initFlutter();
     _box = await Hive.openBox<String>(_boxName);
   }
 
-  /// Vérifie si une cellule donnée a déjà été collectée.
   bool isCollected(GridCell cell) => _box.containsKey(cell.id);
 
-  /// Renvoie le nombre total de carrés collectés depuis le début.
   int get totalCollected => _box.length;
 
-  /// Compte combien de carrés ont été collectés pour un mode de transport spécifique.
   int countForMode(TransportMode mode) =>
       allCollectedCells.where((c) => c.mode == mode).length;
 
-  /// Tente de collecter une cellule unique. Renvoie true si elle a été ajoutée, false si elle existait déjà.
-  bool _collectSingle(GridCell cell, TransportMode mode) {
-    if (_box.containsKey(cell.id)) return false;
-    
-    // Stockage sous forme de JSON pour conserver le mode et la date.
+  void _write(GridCell cell, TransportMode mode) {
     final value = jsonEncode({
       'mode': mode.storageKey,
       'timestamp': DateTime.now().toIso8601String(),
     });
     _box.put(cell.id, value);
-    return true;
   }
 
-  /// Enregistre une liste de cellules parcourues pendant une expédition.
-  /// Renvoie le nombre de NOUVEAUX carrés réellement ajoutés.
-  int commitExpedition(Set<GridCell> cells, TransportMode mode) {
-    var newCount = 0;
-    for (final cell in cells) {
-      if (_collectSingle(cell, mode)) newCount++;
+  /// Enregistre une cellule collectée avec la règle de priorité :
+  /// - si la case n'existait pas encore -> on l'ajoute (nouvelle case)
+  /// - si elle existait avec un transport MOINS prioritaire -> on la met
+  ///   à jour avec le nouveau transport (case "améliorée")
+  /// - si elle existait avec un transport égal ou PLUS prioritaire -> on
+  ///   ne touche à rien (jamais de rétrogradation)
+  /// Retourne 'new', 'upgraded', ou 'unchanged'.
+  String _upsertSingle(GridCell cell, TransportMode mode) {
+    final raw = _box.get(cell.id);
+    if (raw == null) {
+      _write(cell, mode);
+      return 'new';
     }
-    return newCount;
+
+    final existingMode = TransportMode.fromStorageKey(
+      (jsonDecode(raw) as Map<String, dynamic>)['mode'] as String,
+    );
+    if (mode.priority > existingMode.priority) {
+      _write(cell, mode);
+      return 'upgraded';
+    }
+    return 'unchanged';
   }
 
-  /// Récupère la liste complète des carrés collectés, triés par défaut par ordre d'insertion Hive.
+  /// Enregistre toutes les cellules d'une expédition terminée avec le mode
+  /// de transport choisi, en appliquant la règle de priorité ci-dessus.
+  ExpeditionCommitResult commitExpedition(Set<GridCell> cells, TransportMode mode) {
+    var newCount = 0;
+    var upgradedCount = 0;
+    for (final cell in cells) {
+      switch (_upsertSingle(cell, mode)) {
+        case 'new':
+          newCount++;
+        case 'upgraded':
+          upgradedCount++;
+      }
+    }
+    return ExpeditionCommitResult(newCells: newCount, upgradedCells: upgradedCount);
+  }
+
   List<CollectedCell> get allCollectedCells {
     return _box.keys.map((key) {
       final parts = (key as String).split('_');
@@ -78,7 +107,6 @@ class StorageService {
     }).toList();
   }
 
-  /// Vide complètement la base de données (pour tests ou remise à zéro).
   Future<void> reset() async {
     await _box.clear();
   }
